@@ -1,0 +1,69 @@
+{
+  "name": "xmtp-telegram-clone",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^13.2.1",
+    "@types/jest": "^27.0.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@xmtp/browser-sdk": "^5.0.1",
+    "@xmtp/wasm-bindings": "^1.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.4",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.4.2",
+    "web-vitals": "^2.1.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@headlessui/react": "^2.2.9",
+    "@tanstack/react-query": "^5.90.2",
+    "@types/node": "^24.7.0",
+    "@wagmi/connectors": "^5.11.2",
+    "@web3modal/wagmi": "^5.1.11",
+    "ajv": "^8.12.0",
+    "autoprefixer": "^10.4.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "emoji-picker-react": "^4.14.0",
+    "ethers": "^5.8.0",
+    "framer-motion": "^12.23.22",
+    "install": "^0.13.0",
+    "lucide-react": "^0.545.0",
+    "npm": "^10.9.4",
+    "postcss": "^8.4.0",
+    "react-hot-toast": "^2.6.0",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^3.4.0",
+    "viem": "^2.38.0",
+    "wagmi": "^2.17.5"
+  }
+}
