@@ -1,17 +1,14 @@
 import React from 'react'
-import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react'
 import type { Conversation } from '@xmtp/browser-sdk'
-import { motion } from 'framer-motion'
+import ChatHeader from '../chat/ChatHeader'
+import MessageList from '../chat/MessageList'
+import MessageInput from '../chat/MessageInput'
 
 interface ChatContainerProps {
   conversation: Conversation | null
   onBack: () => void
 }
 
-/**
- * Chat container - Shows messages for selected conversation
- * Empty state when no conversation selected
- */
 const ChatContainer: React.FC<ChatContainerProps> = ({ conversation, onBack }) => {
   // Empty state - no conversation selected
   if (!conversation) {
@@ -46,109 +43,18 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversation, onBack }) =
     )
   }
 
-  // FIXED: Check if conversation is a group and cast appropriately
-  const isGroupChat = 'members' in conversation
-  
-  // FIXED: Access id as any to bypass TypeScript union type issue
-  const conversationId = (conversation as any).id || 'unknown'
-  
-  // Get conversation name/identifier
-  const getConversationName = () => {
-    if (isGroupChat) {
-      return 'Group Chat'
-    }
-    return `Chat ${conversationId.slice(0, 8)}`
-  }
-
-  // Get avatar initials
-  const getInitials = () => {
-    if (isGroupChat) return 'GR'
-    return conversationId.slice(0, 2).toUpperCase()
-  }
-
+  // Chat view with messages
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="h-full flex flex-col bg-telegram-chat"
-    >
+    <div className="h-full flex flex-col bg-telegram-chat">
       {/* Chat Header */}
-      <div className="flex-shrink-0 bg-telegram-header border-b border-telegram-border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            {/* Back button for mobile */}
-            <button
-              onClick={onBack}
-              className="md:hidden btn-icon"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+      <ChatHeader conversation={conversation} onBack={onBack} />
 
-            {/* Avatar */}
-            <div className={`avatar avatar-md ${
-              isGroupChat 
-                ? 'bg-telegram-accent' 
-                : 'bg-gradient-to-br from-purple-500 to-pink-500'
-            }`}>
-              {isGroupChat ? (
-                <Users className="w-5 h-5" />
-              ) : (
-                getInitials()
-              )}
-            </div>
+      {/* Messages List */}
+      <MessageList conversation={conversation} />
 
-            {/* Conversation Info */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-telegram-text truncate">
-                {getConversationName()}
-              </h3>
-              <p className="text-xs text-telegram-gray">
-                {isGroupChat ? 'Group' : 'Online'}
-              </p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button className="btn-icon hidden md:flex" title="Voice Call">
-              <Phone className="w-5 h-5" />
-            </button>
-            <button className="btn-icon hidden md:flex" title="Video Call">
-              <Video className="w-5 h-5" />
-            </button>
-            <button className="btn-icon" title="More Options">
-              <MoreVertical className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 scroll-area">
-        <div className="text-center py-8">
-          <p className="text-telegram-gray text-sm">
-            Messages will appear here
-          </p>
-          <p className="text-telegram-grayDark text-xs mt-1">
-            Start the conversation by sending a message
-          </p>
-        </div>
-      </div>
-
-      {/* Message Input Area */}
-      <div className="flex-shrink-0 bg-telegram-sidebar border-t border-telegram-border p-4">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Type a message..."
-            className="chat-input"
-          />
-          <button className="btn-primary px-4 py-3">
-            Send
-          </button>
-        </div>
-      </div>
-    </motion.div>
+      {/* Message Input (with emoji picker) */}
+      <MessageInput conversation={conversation} />
+    </div>
   )
 }
 

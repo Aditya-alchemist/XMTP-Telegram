@@ -10,16 +10,12 @@ interface NewDMProps {
   onSuccess?: () => void
 }
 
-/**
- * Modal to create a new DM conversation
- */
 const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
   const { client } = useXMTPClient()
   const [address, setAddress] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Validate Ethereum address
   const validateAddress = (addr: string): boolean => {
     if (!addr.trim()) {
       setError('Address is required')
@@ -35,7 +31,6 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
     return true
   }
 
-  // Handle address input change
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.trim()
     setAddress(value)
@@ -46,7 +41,6 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
     }
   }
 
-  // Create DM conversation
   const handleCreateDM = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -63,30 +57,32 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
     try {
       console.log('🔄 Creating DM with address:', address)
 
-      // Check if address can receive messages on XMTP
-      const canMessage = await client.canMessage([
+      // Check if address can receive messages
+      const canMessageResult = await client.canMessage([
         {
           identifier: address.toLowerCase(),
           identifierKind: 'Ethereum' as const,
         }
       ])
       
-      if (!canMessage || canMessage.size === 0) {
+      console.log('Can message result:', canMessageResult)
+      
+      if (!canMessageResult || canMessageResult.size === 0) {
         toast.error('Could not verify if address is on XMTP')
         setIsLoading(false)
         return
       }
 
-      const isReachable = Array.from(canMessage.values())[0]
+      const isReachable = Array.from(canMessageResult.values())[0]
 
       if (!isReachable) {
-        toast.error('This address is not registered on XMTP')
+        toast.error('This address is not registered on XMTP. Ask them to connect first!')
         setError('Address not reachable on XMTP network')
         setIsLoading(false)
         return
       }
 
-      // Get inbox ID for the address
+      // Get inbox ID
       const inboxId = await client.findInboxIdByIdentifier({
         identifier: address.toLowerCase(),
         identifierKind: 'Ethereum' as const,
@@ -100,13 +96,16 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
 
       console.log('📬 Found inbox ID:', inboxId)
 
-      // Create new DM (not a group!)
+      // ✅ CORRECT METHOD: Use newDm (not newConversation)
       const dm = await client.conversations.newDm(inboxId)
 
-      console.log('✅ DM created:', dm.id)
-      toast.success('Conversation started!')
+      console.log('✅ DM created:', {
+        id: dm.id,
+        createdAt: dm.createdAtNs
+      })
 
-      // Refresh conversations and close modal
+      toast.success('Chat started!')
+
       onSuccess?.()
       onClose()
     } catch (err) {
@@ -134,7 +133,6 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
         onClick={(e) => e.stopPropagation()}
         className="modal-content p-6"
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-telegram-text">New Chat</h2>
           <button onClick={onClose} className="btn-icon">
@@ -142,9 +140,7 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleCreateDM} className="space-y-4">
-          {/* Address Input */}
           <div>
             <label htmlFor="address" className="block text-sm font-medium text-telegram-text mb-2">
               Ethereum Address
@@ -157,6 +153,7 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
               placeholder="0x..."
               disabled={isLoading}
               className={`input-field ${error ? 'border-red-500 focus:ring-red-500' : ''}`}
+              autoFocus
             />
             {error && (
               <p className="text-red-400 text-xs mt-2">{error}</p>
@@ -166,7 +163,6 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
             </p>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-4">
             <button
               type="button"

@@ -1,5 +1,5 @@
-import React from 'react'
-import { ArrowLeft, MoreVertical, Phone, Video, Users, User } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react'
 import type { Conversation } from '@xmtp/browser-sdk'
 import { motion } from 'framer-motion'
 
@@ -8,36 +8,53 @@ interface ChatHeaderProps {
   onBack: () => void
 }
 
-/**
- * Chat header with conversation info and actions
- */
 const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
-  // Check if conversation is a group
-  const isGroup = 'members' in conversation
+  const [displayName, setDisplayName] = useState<string>('Loading...')
+  const [memberCount, setMemberCount] = useState<number>(0)
+  const [status, setStatus] = useState<string>('Online')
 
-  // Get conversation ID
-  const conversationId = (conversation as any).id || 'unknown'
+  const isGroupChat = memberCount > 2
 
-  // Get display name
-  const getDisplayName = () => {
-    if (isGroup) {
-      return 'Group Chat'
+  useEffect(() => {
+    const loadConversationInfo = async () => {
+      try {
+        await conversation.sync()
+        
+        if ('members' in conversation) {
+          const group = conversation as any
+          const members = group.members || []
+          setMemberCount(members.length)
+          
+          if (members.length > 2) {
+            // It's a group
+            const groupName = group.name || 'Group Chat'
+            setDisplayName(groupName)
+            setStatus(`${members.length} members`)
+          } else {
+            // It's a DM
+            const myInboxId = group.client?.inboxId
+            const otherMember = members.find((m: string) => m !== myInboxId)
+            
+            if (otherMember) {
+              setDisplayName(`${otherMember.slice(0, 8)}...`)
+              setStatus('Online')
+            } else {
+              setDisplayName('Direct Message')
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading conversation info:', err)
+        setDisplayName(conversation.id.slice(0, 8))
+      }
     }
-    return `Chat ${conversationId.slice(0, 8)}`
-  }
 
-  // Get avatar initials
+    loadConversationInfo()
+  }, [conversation])
+
   const getInitials = () => {
-    if (isGroup) return 'GR'
-    return conversationId.slice(0, 2).toUpperCase()
-  }
-
-  // Get status text
-  const getStatusText = () => {
-    if (isGroup) {
-      return 'Group'
-    }
-    return 'Online'
+    if (isGroupChat) return 'GR'
+    return displayName.slice(0, 2).toUpperCase()
   }
 
   return (
@@ -47,9 +64,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
       className="flex-shrink-0 bg-telegram-header border-b border-telegram-border"
     >
       <div className="flex items-center justify-between p-4">
-        {/* Left Section */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* Back Button (Mobile) */}
           <button
             onClick={onBack}
             className="md:hidden btn-icon flex-shrink-0"
@@ -58,33 +73,29 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div
               className={`avatar avatar-md ${
-                isGroup
+                isGroupChat
                   ? 'bg-telegram-accent'
                   : 'bg-gradient-to-br from-purple-500 to-pink-500'
               }`}
             >
-              {isGroup ? <Users className="w-5 h-5" /> : getInitials()}
+              {isGroupChat ? <Users className="w-5 h-5" /> : getInitials()}
             </div>
-            {/* Online Indicator */}
-            {!isGroup && (
+            {!isGroupChat && (
               <div className="absolute bottom-0 right-0 status-online" />
             )}
           </div>
 
-          {/* Conversation Info */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-telegram-text truncate">
-              {getDisplayName()}
+              {displayName}
             </h3>
-            <p className="text-xs text-telegram-gray">{getStatusText()}</p>
+            <p className="text-xs text-telegram-gray">{status}</p>
           </div>
         </div>
 
-        {/* Right Section - Action Buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             className="btn-icon hidden md:flex"

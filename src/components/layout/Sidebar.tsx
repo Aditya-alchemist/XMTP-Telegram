@@ -7,15 +7,13 @@ import type { Conversation } from '@xmtp/browser-sdk'
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import NewDM from '../conversations/NewDM'
+import NewGroup from '../conversations/NewGroup'
 
 interface SidebarProps {
   selectedConversation: Conversation | null
   onSelectConversation: (conversation: Conversation) => void
 }
 
-/**
- * Sidebar component - Shows conversation list
- */
 const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConversation }) => {
   const { address } = useAccount()
   const { disconnect } = useDisconnect()
@@ -24,46 +22,25 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
   
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
+  const [showNewGroup, setShowNewGroup] = useState(false)
 
-  // Filter conversations by search
   const filteredConversations = conversations.filter((conv) => {
-    // For now, just show all. You can add search logic here
-    return true
+    return true // Add search logic here
   })
 
-  // Format conversation time
   const getConversationTime = (conversation: Conversation) => {
-    // FIXED: lastMessage is a function, not a property
-    const getLastMessage = async () => {
-      try {
-        const lastMsg = await conversation.lastMessage()
-        if (!lastMsg?.sentAtNs) return ''
-        
-        const timestamp = Number(lastMsg.sentAtNs) / 1_000_000
-        return formatDistanceToNow(timestamp, { addSuffix: true })
-      } catch (err) {
-        return ''
-      }
-    }
-    
-    // Return placeholder for now (we'll improve this with state)
     return 'Recently'
   }
 
-  // Get conversation preview
   const getPreview = (conversation: Conversation) => {
-    // FIXED: We'll use a simple placeholder since lastMessage is async
     return 'Tap to view messages'
   }
 
-  // Get avatar initials
   const getInitials = (text: string) => {
     return text.slice(0, 2).toUpperCase()
   }
 
-  // Check if conversation is a group
   const isGroup = (conversation: Conversation) => {
-    // FIXED: Check if conversation has members (groups have members array)
     return 'members' in conversation
   }
 
@@ -108,8 +85,9 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
         </div>
       </div>
 
-      {/* New Chat Button */}
-      <div className="flex-shrink-0 p-4 border-b border-telegram-border">
+      {/* New Chat Buttons */}
+      <div className="flex-shrink-0 p-4 border-b border-telegram-border space-y-2">
+        {/* New DM Button */}
         <button
           onClick={() => setShowNewChat(true)}
           className="w-full flex items-center justify-center gap-2 bg-telegram-blue
@@ -118,6 +96,17 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
         >
           <MessageSquarePlus className="w-5 h-5" />
           <span className="font-medium">New Chat</span>
+        </button>
+
+        {/* New Group Button */}
+        <button
+          onClick={() => setShowNewGroup(true)}
+          className="w-full flex items-center justify-center gap-2 bg-telegram-accent
+                   hover:bg-telegram-accent/80 text-white rounded-xl py-3 px-4
+                   transition-all duration-200 transform hover:scale-105"
+        >
+          <Users className="w-5 h-5" />
+          <span className="font-medium">New Group</span>
         </button>
       </div>
 
@@ -165,7 +154,6 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
                         {getInitials(conversation.id.slice(0, 4))}
                       </div>
                     )}
-                    {/* Online indicator */}
                     <div className="absolute bottom-0 right-0 status-online" />
                   </div>
 
@@ -210,6 +198,16 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
         {showNewChat && (
           <NewDM
             onClose={() => setShowNewChat(false)}
+            onSuccess={() => refetch()}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* New Group Modal */}
+      <AnimatePresence>
+        {showNewGroup && (
+          <NewGroup
+            onClose={() => setShowNewGroup(false)}
             onSuccess={() => refetch()}
           />
         )}
