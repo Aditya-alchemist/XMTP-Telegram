@@ -15,7 +15,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   onClick,
 }) => {
   const { client } = useXMTPClient()
-  const [displayName, setDisplayName] = useState<string>('Loading...')
+  const [displayName, setDisplayName] = useState<string>('')
   const [memberCount, setMemberCount] = useState<number>(0)
 
   const isGroupChat = memberCount > 2
@@ -24,6 +24,11 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
     const loadConversationInfo = async () => {
       try {
         await conversation.sync()
+        
+        const convId = (conversation as any).id || 'unknown'
+        
+        // Check if custom name is stored
+        const storedName = localStorage.getItem(`dm_name_${convId}`)
         
         if ('members' in conversation) {
           const group = conversation as any
@@ -35,38 +40,26 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
             const groupName = group.name || 'Group Chat'
             setDisplayName(groupName)
           } else if (members.length === 2) {
-            // It's a DM - get the other person's inbox ID
-            const myInboxId = client?.inboxId
-            const otherInboxId = members.find((m: string) => m !== myInboxId)
-            
-            if (otherInboxId && client) {
-              try {
-                // Use findInboxIdByIdentifier to get address info
-                const addresses = await client.findInboxIdByIdentifier({
-                  identifier: otherInboxId,
-                  identifierKind: 'InboxId' as any,
-                })
-                
-                if (addresses) {
-                  // Format as 0x1234...5678
-                  setDisplayName(`${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}`)
-                } else {
-                  setDisplayName(`${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}`)
-                }
-              } catch {
-                // Fallback to inbox ID
-                setDisplayName(`${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}`)
-              }
+            // It's a DM
+            if (storedName) {
+              // Use stored custom name
+              setDisplayName(storedName)
             } else {
-              setDisplayName('Direct Message')
+              // Use inbox ID
+              const myInboxId = client?.inboxId
+              const otherInboxId = members.find((m: string) => m !== myInboxId)
+              
+              if (otherInboxId) {
+                setDisplayName(`${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}`)
+              } else {
+                setDisplayName('Direct Message')
+              }
             }
           } else {
-            setDisplayName('Empty Chat')
+            setDisplayName(storedName || convId.slice(0, 8))
           }
         } else {
-          // Fallback for non-group conversations
-          const convId = (conversation as any).id || 'unknown'
-          setDisplayName(convId.slice(0, 8))
+          setDisplayName(storedName || convId.slice(0, 8))
         }
       } catch (err) {
         console.error('Error loading conversation info:', err)
@@ -80,6 +73,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
 
   const getInitials = () => {
     if (isGroupChat) return 'GR'
+    if (!displayName) return '??'
     return displayName.slice(0, 2).toUpperCase()
   }
 
@@ -104,7 +98,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-telegram-text truncate">
-            {displayName}
+            {displayName || 'Loading...'}
           </h3>
           <span className="text-xs text-telegram-gray flex-shrink-0 ml-2">
             Recently

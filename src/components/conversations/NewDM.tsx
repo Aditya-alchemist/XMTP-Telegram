@@ -13,6 +13,7 @@ interface NewDMProps {
 const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
   const { client } = useXMTPClient()
   const [address, setAddress] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -65,8 +66,6 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
         }
       ])
       
-      console.log('Can message result:', canMessageResult)
-      
       if (!canMessageResult || canMessageResult.size === 0) {
         toast.error('Could not verify if address is on XMTP')
         setIsLoading(false)
@@ -96,13 +95,17 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
 
       console.log('📬 Found inbox ID:', inboxId)
 
-      // ✅ CORRECT METHOD: Use newDm (not newConversation)
+      // Create DM (without name option - it doesn't exist in v3)
       const dm = await client.conversations.newDm(inboxId)
 
-      console.log('✅ DM created:', {
-        id: dm.id,
-        createdAt: dm.createdAtNs
-      })
+      console.log('✅ DM created:', dm.id)
+
+      // Store custom name in localStorage
+      const conversationName = displayName.trim() || `${address.slice(0, 6)}...${address.slice(-4)}`
+      localStorage.setItem(`dm_name_${dm.id}`, conversationName)
+      localStorage.setItem(`dm_address_${dm.id}`, address.toLowerCase())
+
+      console.log('💾 Stored custom name:', conversationName)
 
       toast.success('Chat started!')
 
@@ -141,6 +144,26 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
         </div>
 
         <form onSubmit={handleCreateDM} className="space-y-4">
+          {/* Display Name Input */}
+          <div>
+            <label htmlFor="displayName" className="block text-sm font-medium text-telegram-text mb-2">
+              Contact Name (Optional)
+            </label>
+            <input
+              id="displayName"
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g., Alice, Bob, Friend"
+              disabled={isLoading}
+              className="input-field"
+            />
+            <p className="text-telegram-grayDark text-xs mt-2">
+              Give this contact a name for easier identification
+            </p>
+          </div>
+
+          {/* Address Input */}
           <div>
             <label htmlFor="address" className="block text-sm font-medium text-telegram-text mb-2">
               Ethereum Address
@@ -153,7 +176,6 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
               placeholder="0x..."
               disabled={isLoading}
               className={`input-field ${error ? 'border-red-500 focus:ring-red-500' : ''}`}
-              autoFocus
             />
             {error && (
               <p className="text-red-400 text-xs mt-2">{error}</p>
