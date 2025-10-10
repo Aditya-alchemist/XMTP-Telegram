@@ -1,8 +1,9 @@
 import React from 'react'
 import type { DecodedMessage } from '@xmtp/browser-sdk'
 import { format } from 'date-fns'
-import { Check, CheckCheck } from 'lucide-react'
+import { Check, CheckCheck, Download, Paperclip } from 'lucide-react'
 import { motion } from 'framer-motion'
+import toast from 'react-hot-toast'
 
 interface MessageBubbleProps {
   message: DecodedMessage
@@ -10,9 +11,6 @@ interface MessageBubbleProps {
   showAvatar?: boolean
 }
 
-/**
- * Individual message bubble
- */
 const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isOwnMessage,
@@ -24,14 +22,48 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (typeof content === 'string') {
       return content
     }
-    // Handle other content types
     return JSON.stringify(content)
+  }
+
+  // Check if message contains file attachment
+  const isFileMessage = (): boolean => {
+    const content = getMessageContent()
+    return content.startsWith('📎 File:')
+  }
+
+  // Parse file info from message
+  const parseFileInfo = (): { name: string; size: string } | null => {
+    if (!isFileMessage()) return null
+    
+    const content = getMessageContent()
+    const match = content.match(/📎 File: (.+?) \((.+?)\)/)
+    
+    if (match) {
+      return {
+        name: match[1],
+        size: match[2]
+      }
+    }
+    
+    return null
+  }
+
+  // Get text content (without file info)
+  const getTextContent = (): string => {
+    const content = getMessageContent()
+    
+    if (isFileMessage()) {
+      // Extract caption after file info
+      const parts = content.split('\n\n')
+      return parts.length > 1 ? parts.slice(1).join('\n\n') : ''
+    }
+    
+    return content
   }
 
   // Format timestamp
   const getFormattedTime = (): string => {
     try {
-      // Convert nanoseconds to milliseconds
       const timestamp = Number(message.sentAtNs) / 1_000_000
       return format(timestamp, 'HH:mm')
     } catch (err) {
@@ -43,6 +75,18 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const getSenderInitials = (): string => {
     return message.senderInboxId.slice(0, 2).toUpperCase()
   }
+
+  // Handle file download (simulated - since we don't have actual files)
+  const handleDownload = () => {
+    const fileInfo = parseFileInfo()
+    if (fileInfo) {
+      toast.success(`Download feature coming soon for: ${fileInfo.name}`)
+      // In a real app, you'd fetch the file from IPFS/CDN here
+    }
+  }
+
+  const fileInfo = parseFileInfo()
+  const textContent = getTextContent()
 
   return (
     <div
@@ -66,10 +110,32 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           isOwnMessage ? 'message-sent' : 'message-received'
         }`}
       >
-        {/* Message Content */}
-        <p className="text-sm whitespace-pre-wrap break-words">
-          {getMessageContent()}
-        </p>
+        {/* File Attachment */}
+        {fileInfo && (
+          <div className="mb-2 p-3 bg-telegram-bg/30 rounded-lg flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-telegram-blue/20 flex items-center justify-center flex-shrink-0">
+              <Paperclip className="w-5 h-5 text-telegram-blue" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{fileInfo.name}</p>
+              <p className="text-xs text-telegram-textSecondary">{fileInfo.size}</p>
+            </div>
+            <button
+              onClick={handleDownload}
+              className="btn-icon flex-shrink-0 hover:bg-telegram-blue/20"
+              title="Download file"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Message Text */}
+        {textContent && (
+          <p className="text-sm whitespace-pre-wrap break-words">
+            {textContent}
+          </p>
+        )}
 
         {/* Timestamp and Status */}
         <div
