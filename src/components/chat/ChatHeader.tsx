@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react'
+import { ArrowLeft, MoreVertical, Phone, Video, Users, Info } from 'lucide-react'
 import type { Conversation } from '@xmtp/browser-sdk'
 import { motion } from 'framer-motion'
 import { useXMTPClient } from '../../hooks/useXMTPClient'
+import toast from 'react-hot-toast'
 
 interface ChatHeaderProps {
   conversation: Conversation
@@ -11,7 +12,7 @@ interface ChatHeaderProps {
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
   const { client } = useXMTPClient()
-  const [displayName, setDisplayName] = useState<string>('Loading...')
+  const [displayName, setDisplayName] = useState<string>('')
   const [memberCount, setMemberCount] = useState<number>(0)
   const [status, setStatus] = useState<string>('Online')
 
@@ -22,57 +23,60 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
       try {
         await conversation.sync()
         
+        const convId = (conversation as any).id || 'unknown'
+        const storedName = localStorage.getItem(`dm_name_${convId}`)
+        const storedAddress = localStorage.getItem(`dm_address_${convId}`)
+        
         if ('members' in conversation) {
           const group = conversation as any
           const members = group.members || []
           setMemberCount(members.length)
           
           if (members.length > 2) {
-            // It's a group
+            // Real group
             const groupName = group.name || 'Group Chat'
             setDisplayName(groupName)
             setStatus(`${members.length} members`)
-          } else if (members.length === 2) {
-            // It's a DM
-            const myInboxId = client?.inboxId
-            const otherInboxId = members.find((m: string) => m !== myInboxId)
-            
-            if (otherInboxId && client) {
-              try {
-                // Try to get more info about the inbox
-                const inboxInfo = await client.findInboxIdByIdentifier({
-                  identifier: otherInboxId,
-                  identifierKind: 'InboxId' as any,
-                })
-                
-                // Use inbox ID as display name (formatted)
-                setDisplayName(`${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}`)
-              } catch {
-                setDisplayName(`${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}`)
-              }
-              setStatus('Online')
-            } else {
-              setDisplayName('Direct Message')
-            }
           } else {
-            setDisplayName('Empty Chat')
+            // DM
+            if (storedName) {
+              setDisplayName(storedName)
+            } else if (storedAddress) {
+              setDisplayName(`${storedAddress.slice(0, 6)}...${storedAddress.slice(-4)}`)
+            } else {
+              const myInboxId = client?.inboxId
+              const otherInboxId = members.find((m: string) => m !== myInboxId)
+              setDisplayName(otherInboxId ? `${otherInboxId.slice(0, 6)}...${otherInboxId.slice(-4)}` : 'Contact')
+            }
+            setStatus('Online')
           }
         } else {
-          const convId = (conversation as any).id || 'unknown'
-          setDisplayName(convId.slice(0, 8))
+          setDisplayName(storedName || convId.slice(0, 8))
         }
       } catch (err) {
         console.error('Error loading conversation info:', err)
-        const convId = (conversation as any).id || 'unknown'
-        setDisplayName(convId.slice(0, 8))
+        setDisplayName('Contact')
       }
     }
 
     loadConversationInfo()
   }, [conversation, client])
 
+  const handleCall = () => {
+    toast('Voice call feature coming soon!', { icon: '📞' })
+  }
+
+  const handleVideoCall = () => {
+    toast('Video call feature coming soon!', { icon: '📹' })
+  }
+
+  const handleMoreOptions = () => {
+    toast('More options coming soon!', { icon: '⚙️' })
+  }
+
   const getInitials = () => {
     if (isGroupChat) return 'GR'
+    if (!displayName) return '??'
     return displayName.slice(0, 2).toUpperCase()
   }
 
@@ -96,19 +100,36 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
           </div>
 
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-telegram-text truncate">{displayName}</h3>
+            <h3 className="font-semibold text-telegram-text truncate">
+              {displayName || 'Loading...'}
+            </h3>
             <p className="text-xs text-telegram-gray">{status}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button className="btn-icon hidden md:flex" title="Voice Call" aria-label="Voice call">
+          <button 
+            onClick={handleCall}
+            className="btn-icon hidden md:flex" 
+            title="Voice Call" 
+            aria-label="Voice call"
+          >
             <Phone className="w-5 h-5" />
           </button>
-          <button className="btn-icon hidden md:flex" title="Video Call" aria-label="Video call">
+          <button 
+            onClick={handleVideoCall}
+            className="btn-icon hidden md:flex" 
+            title="Video Call" 
+            aria-label="Video call"
+          >
             <Video className="w-5 h-5" />
           </button>
-          <button className="btn-icon" title="More Options" aria-label="More options">
+          <button 
+            onClick={handleMoreOptions}
+            className="btn-icon" 
+            title="More Options" 
+            aria-label="More options"
+          >
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>

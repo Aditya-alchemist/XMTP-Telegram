@@ -1,7 +1,7 @@
 import React from 'react'
 import type { DecodedMessage } from '@xmtp/browser-sdk'
 import { format } from 'date-fns'
-import { Check, CheckCheck, Download, Paperclip } from 'lucide-react'
+import { CheckCheck, Download, Paperclip } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
@@ -69,14 +69,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     return message.senderInboxId.slice(0, 2).toUpperCase()
   }
 
-  // FIXED: Actual download functionality
   const handleDownload = () => {
     const fileInfo = parseFileInfo()
     if (fileInfo) {
-      // Create a dummy file download (since we don't have actual file data)
-      // In production, you'd fetch from IPFS/CDN
-      const content = `This is a placeholder for: ${fileInfo.name}\n\nTo enable real downloads, upload files to IPFS/Arweave and store the URL in the message.`
-      const blob = new Blob([content], { type: 'text/plain' })
+      // Create a text file as placeholder
+      const placeholderContent = `File: ${fileInfo.name}\nSize: ${fileInfo.size}\n\nNote: This is a placeholder file. In production, integrate with IPFS/Arweave for real file storage.`
+      
+      const blob = new Blob([placeholderContent], { type: 'text/plain' })
       const url = URL.createObjectURL(blob)
       
       const a = document.createElement('a')
@@ -119,7 +118,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
             <button
               onClick={handleDownload}
-              className="btn-icon flex-shrink-0 hover:bg-telegram-blue/20"
+              className="p-2 rounded-lg hover:bg-telegram-blue/20 transition-colors"
               title="Download file"
             >
               <Download className="w-4 h-4" />

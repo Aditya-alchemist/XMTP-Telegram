@@ -10,16 +10,22 @@ interface ConversationListProps {
   selectedConversation: Conversation | null
 }
 
-/**
- * List of all conversations (DMs and Groups)
- */
 const ConversationList: React.FC<ConversationListProps> = ({
   onSelectConversation,
   selectedConversation,
 }) => {
-  const { conversations, isLoading, error } = useConversations()
+  const { conversations, isLoading, error, refetch } = useConversations()
 
-  if (isLoading) {
+  // Auto-refresh every 5 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      refetch()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [refetch])
+
+  if (isLoading && conversations.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 text-telegram-blue animate-spin" />
