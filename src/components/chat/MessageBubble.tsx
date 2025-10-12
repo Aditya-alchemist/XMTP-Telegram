@@ -1,9 +1,9 @@
 import React from 'react'
 import type { DecodedMessage } from '@xmtp/browser-sdk'
 import { format } from 'date-fns'
-import { CheckCheck, Download, Paperclip } from 'lucide-react'
+import { CheckCheck, Download, Paperclip, ExternalLink, Image, FileText, File } from 'lucide-react'
 import { motion } from 'framer-motion'
-import toast from 'react-hot-toast'
+import { downloadFromIPFS, formatFileSize } from '../../utils/ipfs'
 
 interface MessageBubbleProps {
   message: DecodedMessage
@@ -24,43 +24,24 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     return JSON.stringify(content)
   }
 
-  const isFileMessage = (): boolean => {
+  const parseFileMessage = (): any | null => {
     const content = getMessageContent()
-    return content.startsWith('📎 File:')
-  }
-
-  const parseFileInfo = (): { name: string; size: string } | null => {
-    if (!isFileMessage()) return null
-    
-    const content = getMessageContent()
-    const match = content.match(/📎 File: (.+?) \((.+?)\)/)
-    
-    if (match) {
-      return {
-        name: match[1],
-        size: match[2]
+    try {
+      const parsed = JSON.parse(content)
+      if (parsed.type === 'file' && parsed.file) {
+        return parsed
       }
+    } catch {
+      return null
     }
-    
     return null
-  }
-
-  const getTextContent = (): string => {
-    const content = getMessageContent()
-    
-    if (isFileMessage()) {
-      const parts = content.split('\n\n')
-      return parts.length > 1 ? parts.slice(1).join('\n\n') : ''
-    }
-    
-    return content
   }
 
   const getFormattedTime = (): string => {
     try {
       const timestamp = Number(message.sentAtNs) / 1_000_000
       return format(timestamp, 'HH:mm')
-    } catch (err) {
+    } catch {
       return ''
     }
   }
@@ -69,29 +50,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     return message.senderInboxId.slice(0, 2).toUpperCase()
   }
 
-  const handleDownload = () => {
-    const fileInfo = parseFileInfo()
-    if (fileInfo) {
-      // Create a text file as placeholder
-      const placeholderContent = `File: ${fileInfo.name}\nSize: ${fileInfo.size}\n\nNote: This is a placeholder file. In production, integrate with IPFS/Arweave for real file storage.`
-      
-      const blob = new Blob([placeholderContent], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileInfo.name
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      
-      toast.success(`Downloaded: ${fileInfo.name}`)
-    }
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) return <Image className="w-5 h-5" />
+    if (mimeType.startsWith('video/')) return <File className="w-5 h-5" />
+    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5" />
+    return <File className="w-5 h-5" />
   }
 
-  const fileInfo = parseFileInfo()
-  const textContent = getTextContent()
+  const handleDownload = async (cid: string, filename: string) => {
+    await downloadFromIPFS(cid, filename)
+  }
+
+  const fileMessage = parseFileMessage()
+  const textContent = !fileMessage ? getMessageContent() : fileMessage.caption || ''
 
   return (
     <div className={`flex items-end gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -107,22 +78,39 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         animate={{ scale: 1, opacity: 1 }}
         className={`message-bubble ${isOwnMessage ? 'message-sent' : 'message-received'}`}
       >
-        {fileInfo && (
-          <div className="mb-2 p-3 bg-telegram-bg/30 rounded-lg flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-telegram-blue/20 flex items-center justify-center flex-shrink-0">
-              <Paperclip className="w-5 h-5 text-telegram-blue" />
+        {fileMessage && (
+          <div className="mb-2 p-3 bg-telegram-bg/30 rounded-lg border border-telegram-blue/20">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-lg bg-telegram-blue/20 flex items-center justify-center flex-shrink-0">
+                {getFileIcon(fileMessage.file.mimeType)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate text-telegram-text">
+                  {fileMessage.file.name}
+                </p>
+                <p className="text-xs text-telegram-gray">
+                  {formatFileSize(fileMessage.file.size)}
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => handleDownload(fileMessage.file.cid, fileMessage.file.name)}
+                    className="text-xs bg-telegram-blue hover:bg-telegram-darkBlue text-white px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                  >
+                    <Download className="w-3 h-3" />
+                    Download
+                  </button>
+                  <a
+                    href={fileMessage.file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs bg-telegram-chat hover:bg-telegram-hover text-telegram-text px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    View
+                  </a>
+                </div>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{fileInfo.name}</p>
-              <p className="text-xs text-telegram-textSecondary">{fileInfo.size}</p>
-            </div>
-            <button
-              onClick={handleDownload}
-              className="p-2 rounded-lg hover:bg-telegram-blue/20 transition-colors"
-              title="Download file"
-            >
-              <Download className="w-4 h-4" />
-            </button>
           </div>
         )}
 

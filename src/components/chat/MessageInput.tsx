@@ -1,41 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile, X } from 'lucide-react'
+import { Send, Paperclip, Smile, X, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react'
 import type { Conversation } from '@xmtp/browser-sdk'
 import { useMessages } from '../../hooks/useMessages'
 import { UI_CONFIG } from '../../config/constants'
 import toast from 'react-hot-toast'
+import { uploadToIPFS, formatFileSize } from '../../utils/ipfs'
 
 interface MessageInputProps {
   conversation: Conversation
 }
 
-/**
- * Message input with emoji picker and file attachments
- */
 const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
   const [message, setMessage] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { sendMessage, isSending } = useMessages(conversation)
 
-  // Handle emoji selection
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setMessage((prev) => prev + emojiData.emoji)
     setShowEmojiPicker(false)
     inputRef.current?.focus()
   }
 
-  // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File too large. Maximum size is 10MB')
+      if (file.size > 100 * 1024 * 1024) { // 100MB limit
+        toast.error('File too large. Maximum size is 100MB')
         return
       }
 
@@ -44,7 +40,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     }
   }
 
-  // Remove selected file
   const handleRemoveFile = () => {
     setSelectedFile(null)
     if (fileInputRef.current) {
@@ -52,14 +47,11 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     }
   }
 
-  // Handle send message
   const handleSend = async () => {
     const trimmedMessage = message.trim()
     
-    // Check if we have a message or file
     if (!trimmedMessage && !selectedFile) return
-
-    if (isSending) return
+    if (isSending || isUploading) return
 
     if (trimmedMessage.length > UI_CONFIG.MAX_MESSAGE_LENGTH) {
       toast.error(`Message too long. Maximum ${UI_CONFIG.MAX_MESSAGE_LENGTH} characters`)
@@ -67,29 +59,47 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     }
 
     try {
+      let messageToSend = trimmedMessage
+
       if (selectedFile) {
-        // If file is selected, send file info as message
-        // Note: XMTP doesn't support native file attachments yet
-        // You'd need to upload to IPFS/Arweave and send the link
-        const fileMessage = `📎 File: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(2)} KB)\n\n${trimmedMessage}`
-        await sendMessage(fileMessage)
+        setIsUploading(true)
+        toast.loading('Uploading to IPFS...', { id: 'ipfs-upload' })
+
+        // Upload to IPFS
+        const uploaded = await uploadToIPFS(selectedFile)
+        
+        toast.success('Uploaded to IPFS!', { id: 'ipfs-upload' })
+
+        // Create message with file info
+        messageToSend = JSON.stringify({
+          type: 'file',
+          file: {
+            cid: uploaded.cid,
+            url: uploaded.url,
+            name: uploaded.name,
+            size: uploaded.size,
+            mimeType: uploaded.type,
+          },
+          caption: trimmedMessage,
+        })
+
         setSelectedFile(null)
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
         }
-      } else {
-        // Send text message
-        await sendMessage(trimmedMessage)
+        setIsUploading(false)
       }
-      
+
+      await sendMessage(messageToSend)
       setMessage('')
       inputRef.current?.focus()
     } catch (err) {
-      console.error('Failed to send message:', err)
+      console.error('Failed to send:', err)
+      toast.error('Failed to send message', { id: 'ipfs-upload' })
+      setIsUploading(false)
     }
   }
 
-  // Handle key press
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -97,7 +107,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     }
   }
 
-  // Handle input change
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     if (value.length <= UI_CONFIG.MAX_MESSAGE_LENGTH) {
@@ -105,7 +114,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     }
   }
 
-  // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
@@ -115,7 +123,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
 
   return (
     <div className="flex-shrink-0 bg-telegram-sidebar border-t border-telegram-border p-4">
-      {/* Selected File Preview */}
       <AnimatePresence>
         {selectedFile && (
           <motion.div
@@ -133,43 +140,42 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
                   {selectedFile.name}
                 </p>
                 <p className="text-telegram-gray text-xs">
-                  {(selectedFile.size / 1024).toFixed(2)} KB
+                  {formatFileSize(selectedFile.size)}
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleRemoveFile}
-              className="btn-icon flex-shrink-0"
-              disabled={isSending}
-            >
-              <X className="w-4 h-4" />
-            </button>
+            {!isUploading && (
+              <button
+                onClick={handleRemoveFile}
+                className="btn-icon flex-shrink-0"
+                disabled={isSending}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="flex items-end gap-2">
-        {/* Attachment Button */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="btn-icon flex-shrink-0"
           title="Attach file"
-          disabled={isSending}
+          disabled={isSending || isUploading}
         >
           <Paperclip className="w-5 h-5" />
         </button>
 
-        {/* Hidden File Input */}
         <input
           ref={fileInputRef}
           type="file"
           className="hidden"
           onChange={handleFileSelect}
-          accept="image/*,video/*,application/pdf,.doc,.docx,.txt"
-          disabled={isSending}
+          accept="*/*"
+          disabled={isSending || isUploading}
         />
 
-        {/* Input Container */}
         <div className="flex-1 relative">
           <textarea
             ref={inputRef}
@@ -177,15 +183,12 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
             onChange={handleChange}
             onKeyDown={handleKeyPress}
             placeholder={selectedFile ? 'Add a caption...' : 'Type a message...'}
-            disabled={isSending}
+            disabled={isSending || isUploading}
             rows={1}
             className="chat-input resize-none max-h-32 min-h-[44px] pr-16"
-            style={{
-              height: 'auto',
-            }}
+            style={{ height: 'auto' }}
           />
 
-          {/* Character Count */}
           {message.length > UI_CONFIG.MAX_MESSAGE_LENGTH * 0.8 && (
             <div className="absolute bottom-2 right-2 text-xs text-telegram-gray bg-telegram-sidebar px-2 py-1 rounded">
               {message.length} / {UI_CONFIG.MAX_MESSAGE_LENGTH}
@@ -193,18 +196,16 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
           )}
         </div>
 
-        {/* Emoji Button */}
         <div className="relative flex-shrink-0">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="btn-icon"
             title="Emoji"
-            disabled={isSending}
+            disabled={isSending || isUploading}
           >
             <Smile className="w-5 h-5" />
           </button>
 
-          {/* Emoji Picker */}
           <AnimatePresence>
             {showEmojiPicker && (
               <>
@@ -224,9 +225,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
                     searchPlaceholder="Search emoji..."
                     width={350}
                     height={400}
-                    previewConfig={{
-                      showPreview: false,
-                    }}
+                    previewConfig={{ showPreview: false }}
                   />
                 </motion.div>
               </>
@@ -234,16 +233,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
           </AnimatePresence>
         </div>
 
-        {/* Send Button */}
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
-          disabled={(!message.trim() && !selectedFile) || isSending}
+          disabled={(!message.trim() && !selectedFile) || isSending || isUploading}
           className="btn-primary px-4 py-3 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSending ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          {isSending || isUploading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <Send className="w-5 h-5" />
           )}

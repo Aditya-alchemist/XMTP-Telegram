@@ -106,6 +106,8 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
       localStorage.setItem(`dm_address_${dm.id}`, address.toLowerCase())
 
       console.log('💾 Stored custom name:', conversationName)
+      window.dispatchEvent(new Event('xmtp-new-conversation'))
+
 
       toast.success('Chat started!')
 
