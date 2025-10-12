@@ -59,26 +59,39 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   }
 
   const handleDownload = async (cid: string, filename: string) => {
+    const downloadToast = toast.loading('Downloading...')
+    
     try {
-      // Just open in new tab - simpler and works
       const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
       const url = `https://${gateway}/ipfs/${cid}`
       
-      // Create a hidden link and trigger download
+      // Fetch the file as blob
+      const response = await fetch(url, {
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        throw new Error('Download failed')
+      }
+
+      const blob = await response.blob()
+      
+      // Create download link
+      const downloadUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = url
+      link.href = downloadUrl
       link.download = filename
-      link.target = '_blank'
-      link.rel = 'noopener noreferrer'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       
-      toast.success('Download started', { duration: 1500 })
+      // Cleanup
+      URL.revokeObjectURL(downloadUrl)
+      
+      toast.success('Downloaded!', { id: downloadToast })
     } catch (err) {
       console.error('Download error:', err)
-      // Fallback to view
-      handleView(cid)
+      toast.error('Download failed', { id: downloadToast })
     }
   }
 

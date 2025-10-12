@@ -32,7 +32,7 @@ root.render(
         <XMTPProvider>
           <App />
           <Toaster
-            position="top-center"
+            position="top-right"
             toastOptions={{
               duration: 1500,
               style: {
@@ -43,6 +43,7 @@ root.render(
                 borderRadius: '12px',
                 fontSize: '14px',
                 fontWeight: '500',
+                marginTop: '60px',
               },
               success: {
                 iconTheme: {

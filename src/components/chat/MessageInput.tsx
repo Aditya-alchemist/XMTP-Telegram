@@ -53,14 +53,16 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
 
     try {
       let messageToSend = trimmedMessage
+      let showSuccessToast = true
 
       if (selectedFile) {
         setIsUploading(true)
-        const loadingToast = toast.loading('Uploading...')
+        const uploadToast = toast.loading('Uploading...')
 
         try {
           const uploaded = await uploadToIPFS(selectedFile)
-          toast.success('Uploaded!', { id: loadingToast })
+          toast.success('Uploaded!', { id: uploadToast })
+          showSuccessToast = false // Don't show "Sent" toast, upload toast is enough
 
           messageToSend = JSON.stringify({
             type: 'file',
@@ -79,7 +81,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
             fileInputRef.current.value = ''
           }
         } catch (err) {
-          toast.error('Upload failed', { id: loadingToast })
+          toast.error('Upload failed', { id: uploadToast })
           setIsUploading(false)
           return
         }
@@ -87,11 +89,10 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
         setIsUploading(false)
       }
 
-      // Send message (NO toast here - handled by success below)
       await sendMessage(messageToSend)
       
-      // ONLY ONE TOAST
-      if (!selectedFile) {
+      // Only show "Sent" for text messages (not files)
+      if (showSuccessToast) {
         toast.success('Sent')
       }
       
@@ -99,7 +100,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
       inputRef.current?.focus()
     } catch (err: any) {
       console.error('Send failed:', err)
-      toast.error(err?.message || 'Failed to send')
+      toast.error('Failed to send')
       setIsUploading(false)
     }
   }
@@ -149,10 +150,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
               </div>
             </div>
             {!isUploading && (
-              <button
-                onClick={handleRemoveFile}
-                className="btn-icon flex-shrink-0"
-              >
+              <button onClick={handleRemoveFile} className="btn-icon flex-shrink-0">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -203,10 +201,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
           <AnimatePresence>
             {showEmojiPicker && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowEmojiPicker(false)}
-                />
+                <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
