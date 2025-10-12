@@ -1,3 +1,19 @@
+if (process.env.NODE_ENV === 'development') {
+  const originalWarn = console.warn
+  console.warn = (...args) => {
+    const message = args[0]?.toString() || ''
+    if (
+      message.includes('WalletConnect') ||
+      message.includes('preloaded using link preload') ||
+      message.includes('Restore will override')
+    ) {
+      return
+    }
+    originalWarn(...args)
+  }
+}
+
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
