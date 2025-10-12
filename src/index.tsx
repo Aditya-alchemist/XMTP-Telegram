@@ -1,6 +1,18 @@
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import './styles/index.css'
+import App from './App'
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createWeb3Modal } from '@web3modal/wagmi/react'
+import { config } from './config/wagmi'
+import { XMTPProvider } from './contexts/XMTPContext'
+import { Toaster } from 'react-hot-toast'
+
+// Suppress WalletConnect warnings in development
 if (process.env.NODE_ENV === 'development') {
   const originalWarn = console.warn
-  console.warn = (...args) => {
+  console.warn = (...args: any[]) => {
     const message = args[0]?.toString() || ''
     if (
       message.includes('WalletConnect') ||
@@ -13,62 +25,67 @@ if (process.env.NODE_ENV === 'development') {
   }
 }
 
+// Create Query Client
+const queryClient = new QueryClient()
 
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './styles/index.css'
+// Create Web3Modal
+const projectId = process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'ff049f17-f9f3-4c91-b433-4cec39eb1836'
 
-// Get root element
-const rootElement = document.getElementById('root')
+createWeb3Modal({
+  wagmiConfig: config,
+  projectId,
+  themeMode: 'dark',
+  themeVariables: {
+    '--w3m-accent': '#0088cc',
+    '--w3m-border-radius-master': '8px',
+  },
+})
 
-if (!rootElement) {
-  throw new Error('Failed to find the root element')
-}
+// Handle unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  if (
+    event.reason?.message?.includes('Connection interrupted') ||
+    event.reason?.message?.includes('WebSocket')
+  ) {
+    event.preventDefault()
+  }
+})
 
-// Create root
-const root = ReactDOM.createRoot(rootElement)
-
-// Render app
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
 )
 
-// Log app info in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('🚀 XMTP Telegram Clone')
-  console.log('📦 Version:', process.env.REACT_APP_VERSION || '1.0.0')
-  console.log('🔧 Environment:', process.env.REACT_APP_XMTP_ENV || 'production')
-  console.log('⚡ Built with React + XMTP v3')
-}
-
-// Performance monitoring (optional)
-if (process.env.NODE_ENV === 'production') {
-  // Report web vitals
-  const reportWebVitals = (metric: any) => {
-    // You can send to analytics here
-    console.log(metric)
-  }
-
-  // Import and use web-vitals if installed
-  // import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals'
-  // getCLS(reportWebVitals)
-  // getFID(reportWebVitals)
-  // getFCP(reportWebVitals)
-  // getLCP(reportWebVitals)
-  // getTTFB(reportWebVitals)
-}
-
-// Global error handler
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error)
-  // You can send to error tracking service here
-})
-
-// Unhandled promise rejection handler
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason)
-  // You can send to error tracking service here
-})
+root.render(
+  <React.StrictMode>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <XMTPProvider>
+          <App />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: '#2b2f36',
+                color: '#e1e3e6',
+                border: '1px solid #404449',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#64b5f6',
+                  secondary: '#fff',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#ef5350',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+        </XMTPProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  </React.StrictMode>
+)

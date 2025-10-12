@@ -1,4 +1,9 @@
 {
-  "buildCommand": "npm install --legacy-peer-deps && npm run build",
-  "installCommand": "npm install --legacy-peer-deps"
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "create-react-app",
+  "outputDirectory": "build",
+  "env": {
+    "DISABLE_ESLINT_PLUGIN": "true"
+  }
 }
