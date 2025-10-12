@@ -30,13 +30,12 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 100 * 1024 * 1024) { // 100MB limit
+      if (file.size > 100 * 1024 * 1024) {
         toast.error('File too large. Maximum size is 100MB')
         return
       }
 
       setSelectedFile(file)
-      toast.success(`File selected: ${file.name}`)
     }
   }
 
@@ -63,14 +62,12 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
 
       if (selectedFile) {
         setIsUploading(true)
-        toast.loading('Uploading to IPFS...', { id: 'ipfs-upload' })
+        const loadingToast = toast.loading('Uploading file...')
 
-        // Upload to IPFS
         const uploaded = await uploadToIPFS(selectedFile)
         
-        toast.success('Uploaded to IPFS!', { id: 'ipfs-upload' })
+        toast.success('File uploaded!', { id: loadingToast })
 
-        // Create message with file info
         messageToSend = JSON.stringify({
           type: 'file',
           file: {
@@ -91,11 +88,16 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
       }
 
       await sendMessage(messageToSend)
+      
+      // ONLY ONE TOAST HERE
+      toast.success('Message sent')
+      
       setMessage('')
       inputRef.current?.focus()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send:', err)
-      toast.error('Failed to send message', { id: 'ipfs-upload' })
+      const errorMsg = err?.message || 'Failed to send message'
+      toast.error(errorMsg)
       setIsUploading(false)
     }
   }

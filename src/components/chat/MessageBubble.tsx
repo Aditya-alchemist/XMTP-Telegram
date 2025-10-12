@@ -60,37 +60,32 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleDownload = async (cid: string, filename: string) => {
     try {
-      toast.loading('Downloading...', { id: 'download' })
-      
+      // Just open in new tab - simpler and works
       const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
       const url = `https://${gateway}/ipfs/${cid}`
       
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Download failed')
-
-      const blob = await response.blob()
-      const downloadUrl = URL.createObjectURL(blob)
-
-      const a = document.createElement('a')
-      a.href = downloadUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(downloadUrl)
-
-      toast.success('Downloaded!', { id: 'download' })
+      // Create a hidden link and trigger download
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('Download started', { duration: 1500 })
     } catch (err) {
       console.error('Download error:', err)
-      toast.error('Download failed', { id: 'download' })
+      // Fallback to view
+      handleView(cid)
     }
   }
 
   const handleView = (cid: string) => {
     const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
     const url = `https://${gateway}/ipfs/${cid}`
-    window.open(url, '_blank')
-    toast.success('Opening file...', { icon: '🔗' })
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const fileMessage = parseFileMessage()
