@@ -51,18 +51,20 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     if (!trimmedMessage && !selectedFile) return
     if (isSending || isUploading) return
 
-    try {
-      let messageToSend = trimmedMessage
-      let showSuccessToast = true
+    let messageToSend = trimmedMessage
+    let uploadSuccessToastId: string | undefined
 
+    try {
       if (selectedFile) {
         setIsUploading(true)
         const uploadToast = toast.loading('Uploading...')
 
         try {
           const uploaded = await uploadToIPFS(selectedFile)
-          toast.success('Uploaded!', { id: uploadToast })
-          showSuccessToast = false // Don't show "Sent" toast, upload toast is enough
+          
+          // Dismiss loading and show success
+          toast.dismiss(uploadToast)
+          uploadSuccessToastId = toast.success('Sent', { duration: 1500 })
 
           messageToSend = JSON.stringify({
             type: 'file',
@@ -89,11 +91,12 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
         setIsUploading(false)
       }
 
+      // Send the message
       await sendMessage(messageToSend)
       
-      // Only show "Sent" for text messages (not files)
-      if (showSuccessToast) {
-        toast.success('Sent')
+      // Only show "Sent" for text messages (files already showed it)
+      if (!selectedFile) {
+        toast.success('Sent', { duration: 1500 })
       }
       
       setMessage('')
