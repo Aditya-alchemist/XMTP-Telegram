@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Conversation } from '@xmtp/browser-sdk'
 import { useXMTPClient } from './useXMTPClient'
-import toast from 'react-hot-toast'
 import { ERROR_MESSAGES } from '../config/constants'
 
 interface UseConversationsReturn {
@@ -17,24 +16,28 @@ export const useConversations = (): UseConversationsReturn => {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const isSyncing = useRef(false)
 
   const syncConversations = useCallback(async () => {
-    if (!client) return
+    if (!client || isSyncing.current) return
 
     try {
+      isSyncing.current = true
       await client.conversations.sync()
     } catch (err) {
       console.error('Error syncing conversations:', err)
+    } finally {
+      isSyncing.current = false
     }
   }, [client])
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (showLoading = true) => {
     if (!client || !isConnected) {
       setConversations([])
       return
     }
 
-    setIsLoading(true)
+    if (showLoading) setIsLoading(true)
     setError(null)
 
     try {
@@ -69,17 +72,17 @@ export const useConversations = (): UseConversationsReturn => {
       const error = err instanceof Error ? err : new Error(ERROR_MESSAGES.CONVERSATION_LOAD_ERROR)
       setError(error)
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }, [client, isConnected, syncConversations])
 
   const refetch = useCallback(async () => {
-    await fetchConversations()
+    await fetchConversations(false) // Silent refresh
   }, [fetchConversations])
 
   useEffect(() => {
     if (isConnected && client) {
-      fetchConversations()
+      fetchConversations(true)
     }
   }, [isConnected, client, fetchConversations])
 
@@ -95,18 +98,19 @@ export const useConversations = (): UseConversationsReturn => {
     window.addEventListener('xmtp-message-sent', handleMessageSent)
     window.addEventListener('xmtp-new-conversation', handleNewConversation)
 
+    // Silent background refresh every 15 seconds
     const pollInterval = setInterval(() => {
-      if (isConnected && client && !isLoading) {
+      if (isConnected && client && !isSyncing.current) {
         refetch()
       }
-    }, 10000)
+    }, 15000)
 
     return () => {
       window.removeEventListener('xmtp-message-sent', handleMessageSent)
       window.removeEventListener('xmtp-new-conversation', handleNewConversation)
       clearInterval(pollInterval)
     }
-  }, [refetch, isConnected, client, isLoading])
+  }, [refetch, isConnected, client])
 
   return {
     conversations,

@@ -1,7 +1,7 @@
 import React from 'react'
 import type { DecodedMessage } from '@xmtp/browser-sdk'
 import { format } from 'date-fns'
-import { CheckCheck, Download, Paperclip, ExternalLink, Image, FileText, File, Video } from 'lucide-react'
+import { CheckCheck, Download, ExternalLink, Image, FileText, File, Video } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatFileSize } from '../../utils/ipfs'
 import toast from 'react-hot-toast'
@@ -58,14 +58,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     return <File className="w-5 h-5 text-telegram-blue" />
   }
 
-  const handleDownload = async (url: string, filename: string) => {
+  const handleDownload = async (cid: string, filename: string) => {
     try {
       toast.loading('Downloading...', { id: 'download' })
       
-      // Use CORS proxy for production
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
+      const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
+      const url = `https://${gateway}/ipfs/${cid}`
       
-      const response = await fetch(proxyUrl)
+      const response = await fetch(url)
       if (!response.ok) throw new Error('Download failed')
 
       const blob = await response.blob()
@@ -82,20 +82,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       toast.success('Downloaded!', { id: 'download' })
     } catch (err) {
       console.error('Download error:', err)
-      toast.error('Download failed. Try "View" instead.', { id: 'download' })
+      toast.error('Download failed', { id: 'download' })
     }
   }
 
-  const handleView = (url: string) => {
-    // Use CORS proxy for viewing
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
-    window.open(proxyUrl, '_blank')
+  const handleView = (cid: string) => {
+    const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
+    const url = `https://${gateway}/ipfs/${cid}`
+    window.open(url, '_blank')
+    toast.success('Opening file...', { icon: '🔗' })
   }
 
   const fileMessage = parseFileMessage()
   const textContent = !fileMessage ? getMessageContent() : fileMessage.caption || ''
-
-  // Don't show JSON objects in chat
   const shouldShowText = textContent && !textContent.startsWith('{') && !textContent.startsWith('[')
 
   return (
@@ -127,14 +126,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleDownload(fileMessage.file.url, fileMessage.file.name)}
+                    onClick={() => handleDownload(fileMessage.file.cid, fileMessage.file.name)}
                     className="text-xs bg-telegram-blue hover:bg-telegram-darkBlue text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
                   >
                     <Download className="w-3 h-3" />
                     Download
                   </button>
                   <button
-                    onClick={() => handleView(fileMessage.file.url)}
+                    onClick={() => handleView(fileMessage.file.cid)}
                     className="text-xs bg-telegram-chat hover:bg-telegram-hover text-telegram-text px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-telegram-border"
                   >
                     <ExternalLink className="w-3 h-3" />

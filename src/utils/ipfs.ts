@@ -1,4 +1,8 @@
+import axios from 'axios'
 import toast from 'react-hot-toast'
+
+const PINATA_JWT = process.env.REACT_APP_PINATA_JWT!
+const PINATA_GATEWAY = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
 
 export interface UploadedFile {
   cid: string
@@ -9,35 +13,34 @@ export interface UploadedFile {
 }
 
 /**
- * Upload file to Pinata IPFS
+ * Upload file to Pinata IPFS (proper method)
  */
 export const uploadToIPFS = async (file: File): Promise<UploadedFile> => {
   try {
     const formData = new FormData()
     formData.append('file', file)
 
-    const pinataJWT = process.env.REACT_APP_PINATA_JWT
-    if (!pinataJWT) {
-      throw new Error('Pinata JWT not configured')
-    }
-
-    const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${pinataJWT}`,
-      },
-      body: formData,
+    const metadata = JSON.stringify({
+      name: file.name,
     })
+    formData.append('pinataMetadata', metadata)
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error?.reason || 'Upload failed')
-    }
+    const response = await axios.post(
+      'https://api.pinata.cloud/pinning/pinFileToIPFS',
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${PINATA_JWT}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        maxBodyLength: Infinity,
+      }
+    )
 
-    const data = await response.json()
-    const cid = data.IpfsHash
-    const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
-    const url = `https://${gateway}/ipfs/${cid}`
+    const cid = response.data.IpfsHash
+    const url = `https://${PINATA_GATEWAY}/ipfs/${cid}`
+
+    console.log('✅ Uploaded to IPFS:', cid)
 
     return {
       cid,
@@ -46,25 +49,25 @@ export const uploadToIPFS = async (file: File): Promise<UploadedFile> => {
       size: file.size,
       type: file.type,
     }
-  } catch (err) {
-    console.error('❌ IPFS upload failed:', err)
+  } catch (err: any) {
+    console.error('❌ IPFS upload failed:', err.response?.data || err.message)
     throw new Error('Failed to upload file to IPFS')
   }
 }
 
 /**
- * Download file from IPFS (with CORS proxy)
+ * Download file from IPFS (direct download)
  */
 export const downloadFromIPFS = async (cid: string, filename: string): Promise<void> => {
   try {
-    const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
-    const url = `https://${gateway}/ipfs/${cid}`
+    const url = `https://${PINATA_GATEWAY}/ipfs/${cid}`
     
-    // Use CORS proxy for production
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+    })
 
-    const response = await fetch(proxyUrl)
-    if (!response.ok) throw new Error('Failed to fetch file')
+    if (!response.ok) throw new Error('Download failed')
 
     const blob = await response.blob()
     const downloadUrl = URL.createObjectURL(blob)
@@ -80,7 +83,10 @@ export const downloadFromIPFS = async (cid: string, filename: string): Promise<v
     toast.success(`Downloaded ${filename}`)
   } catch (err) {
     console.error('❌ Download failed:', err)
-    toast.error('Failed to download file')
+    // Fallback: open in new tab
+    const url = `https://${PINATA_GATEWAY}/ipfs/${cid}`
+    window.open(url, '_blank')
+    toast('Opening in new tab...', { icon: '🔗' })
   }
 }
 
