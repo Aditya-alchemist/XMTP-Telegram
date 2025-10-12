@@ -1,11 +1,4 @@
-import { PinataSDK } from 'pinata-web3'
 import toast from 'react-hot-toast'
-
-// Initialize Pinata
-const pinata = new PinataSDK({
-  pinataJwt: process.env.REACT_APP_PINATA_JWT,
-  pinataGateway: process.env.REACT_APP_PINATA_GATEWAY,
-})
 
 export interface UploadedFile {
   cid: string
@@ -16,20 +9,35 @@ export interface UploadedFile {
 }
 
 /**
- * Upload file to IPFS via Pinata
+ * Upload file to Pinata IPFS
  */
 export const uploadToIPFS = async (file: File): Promise<UploadedFile> => {
   try {
-    console.log('📤 Uploading to IPFS:', file.name)
+    const formData = new FormData()
+    formData.append('file', file)
 
-    // Upload to Pinata
-    const upload = await pinata.upload.file(file)
-    
-    const cid = upload.IpfsHash
+    const pinataJWT = process.env.REACT_APP_PINATA_JWT
+    if (!pinataJWT) {
+      throw new Error('Pinata JWT not configured')
+    }
+
+    const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${pinataJWT}`,
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error?.reason || 'Upload failed')
+    }
+
+    const data = await response.json()
+    const cid = data.IpfsHash
     const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
     const url = `https://${gateway}/ipfs/${cid}`
-
-    console.log('✅ Uploaded to IPFS:', cid)
 
     return {
       cid,
@@ -45,14 +53,17 @@ export const uploadToIPFS = async (file: File): Promise<UploadedFile> => {
 }
 
 /**
- * Download file from IPFS
+ * Download file from IPFS (with CORS proxy)
  */
 export const downloadFromIPFS = async (cid: string, filename: string): Promise<void> => {
   try {
     const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
     const url = `https://${gateway}/ipfs/${cid}`
+    
+    // Use CORS proxy for production
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
 
-    const response = await fetch(url)
+    const response = await fetch(proxyUrl)
     if (!response.ok) throw new Error('Failed to fetch file')
 
     const blob = await response.blob()

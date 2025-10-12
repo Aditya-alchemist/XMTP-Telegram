@@ -1,9 +1,10 @@
 import React from 'react'
 import type { DecodedMessage } from '@xmtp/browser-sdk'
 import { format } from 'date-fns'
-import { CheckCheck, Download, Paperclip, ExternalLink, Image, FileText, File } from 'lucide-react'
+import { CheckCheck, Download, Paperclip, ExternalLink, Image, FileText, File, Video } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { downloadFromIPFS, formatFileSize } from '../../utils/ipfs'
+import { formatFileSize } from '../../utils/ipfs'
+import toast from 'react-hot-toast'
 
 interface MessageBubbleProps {
   message: DecodedMessage
@@ -51,18 +52,51 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   }
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return <Image className="w-5 h-5" />
-    if (mimeType.startsWith('video/')) return <File className="w-5 h-5" />
-    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5" />
-    return <File className="w-5 h-5" />
+    if (mimeType.startsWith('image/')) return <Image className="w-5 h-5 text-telegram-blue" />
+    if (mimeType.startsWith('video/')) return <Video className="w-5 h-5 text-telegram-blue" />
+    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5 text-telegram-blue" />
+    return <File className="w-5 h-5 text-telegram-blue" />
   }
 
-  const handleDownload = async (cid: string, filename: string) => {
-    await downloadFromIPFS(cid, filename)
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      toast.loading('Downloading...', { id: 'download' })
+      
+      // Use CORS proxy for production
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
+      
+      const response = await fetch(proxyUrl)
+      if (!response.ok) throw new Error('Download failed')
+
+      const blob = await response.blob()
+      const downloadUrl = URL.createObjectURL(blob)
+
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(downloadUrl)
+
+      toast.success('Downloaded!', { id: 'download' })
+    } catch (err) {
+      console.error('Download error:', err)
+      toast.error('Download failed. Try "View" instead.', { id: 'download' })
+    }
+  }
+
+  const handleView = (url: string) => {
+    // Use CORS proxy for viewing
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
+    window.open(proxyUrl, '_blank')
   }
 
   const fileMessage = parseFileMessage()
   const textContent = !fileMessage ? getMessageContent() : fileMessage.caption || ''
+
+  // Don't show JSON objects in chat
+  const shouldShowText = textContent && !textContent.startsWith('{') && !textContent.startsWith('[')
 
   return (
     <div className={`flex items-end gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -76,7 +110,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`message-bubble ${isOwnMessage ? 'message-sent' : 'message-received'}`}
+        className={`message-bubble ${isOwnMessage ? 'message-sent' : 'message-received'} max-w-md`}
       >
         {fileMessage && (
           <div className="mb-2 p-3 bg-telegram-bg/30 rounded-lg border border-telegram-blue/20">
@@ -88,33 +122,31 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <p className="text-sm font-medium truncate text-telegram-text">
                   {fileMessage.file.name}
                 </p>
-                <p className="text-xs text-telegram-gray">
+                <p className="text-xs text-telegram-gray mb-2">
                   {formatFileSize(fileMessage.file.size)}
                 </p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2">
                   <button
-                    onClick={() => handleDownload(fileMessage.file.cid, fileMessage.file.name)}
-                    className="text-xs bg-telegram-blue hover:bg-telegram-darkBlue text-white px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                    onClick={() => handleDownload(fileMessage.file.url, fileMessage.file.name)}
+                    className="text-xs bg-telegram-blue hover:bg-telegram-darkBlue text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
                   >
                     <Download className="w-3 h-3" />
                     Download
                   </button>
-                  <a
-                    href={fileMessage.file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs bg-telegram-chat hover:bg-telegram-hover text-telegram-text px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                  <button
+                    onClick={() => handleView(fileMessage.file.url)}
+                    className="text-xs bg-telegram-chat hover:bg-telegram-hover text-telegram-text px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-telegram-border"
                   >
                     <ExternalLink className="w-3 h-3" />
                     View
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {textContent && (
+        {shouldShowText && (
           <p className="text-sm whitespace-pre-wrap break-words">
             {textContent}
           </p>

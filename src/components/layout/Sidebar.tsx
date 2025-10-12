@@ -1,13 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useConversations } from '../../hooks/useConversations'
 import { MessageSquarePlus, Search, Settings, LogOut, Loader2, Users } from 'lucide-react'
 import type { Conversation } from '@xmtp/browser-sdk'
 import { motion, AnimatePresence } from 'framer-motion'
-import { formatDistanceToNow } from 'date-fns'
 import NewDM from '../conversations/NewDM'
 import NewGroup from '../conversations/NewGroup'
+import ConversationItem from '../conversations/ConversationItem'
 
 interface SidebarProps {
   selectedConversation: Conversation | null
@@ -25,23 +25,11 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
   const [showNewGroup, setShowNewGroup] = useState(false)
 
   const filteredConversations = conversations.filter((conv) => {
-    return true // Add search logic here
+    return true
   })
-
-  const getConversationTime = (conversation: Conversation) => {
-    return 'Recently'
-  }
-
-  const getPreview = (conversation: Conversation) => {
-    return 'Tap to view messages'
-  }
 
   const getInitials = (text: string) => {
     return text.slice(0, 2).toUpperCase()
-  }
-
-  const isGroup = (conversation: Conversation) => {
-    return 'members' in conversation
   }
 
   return (
@@ -70,7 +58,6 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
           </button>
         </div>
 
-        {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-telegram-gray" />
           <input
@@ -85,9 +72,8 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
         </div>
       </div>
 
-      {/* New Chat Buttons */}
+      {/* Buttons */}
       <div className="flex-shrink-0 p-4 border-b border-telegram-border space-y-2">
-        {/* New DM Button */}
         <button
           onClick={() => setShowNewChat(true)}
           className="w-full flex items-center justify-center gap-2 bg-telegram-blue
@@ -98,7 +84,6 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
           <span className="font-medium">New Chat</span>
         </button>
 
-        {/* New Group Button */}
         <button
           onClick={() => setShowNewGroup(true)}
           className="w-full flex items-center justify-center gap-2 bg-telegram-accent
@@ -126,56 +111,14 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
           </div>
         ) : (
           <AnimatePresence>
-            {filteredConversations.map((conversation, index) => {
-              const isGroupChat = isGroup(conversation)
-              const isSelected = selectedConversation?.id === conversation.id
-              
-              return (
-                <motion.div
-                  key={conversation.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => onSelectConversation(conversation)}
-                  className={`
-                    sidebar-item cursor-pointer
-                    ${isSelected ? 'sidebar-item-active' : ''}
-                  `}
-                >
-                  {/* Avatar */}
-                  <div className="relative flex-shrink-0">
-                    {isGroupChat ? (
-                      <div className="avatar avatar-md bg-telegram-accent">
-                        <Users className="w-5 h-5" />
-                      </div>
-                    ) : (
-                      <div className="avatar avatar-md bg-gradient-to-br from-purple-500 to-pink-500">
-                        {getInitials(conversation.id.slice(0, 4))}
-                      </div>
-                    )}
-                    <div className="absolute bottom-0 right-0 status-online" />
-                  </div>
-
-                  {/* Conversation Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-medium text-telegram-text truncate">
-                        {isGroupChat ? 'Group Chat' : `${conversation.id.slice(0, 8)}...`}
-                      </h3>
-                      <span className="text-xs text-telegram-gray flex-shrink-0 ml-2">
-                        {getConversationTime(conversation)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-telegram-gray truncate">
-                        {getPreview(conversation)}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )
-            })}
+            {filteredConversations.map((conversation, index) => (
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                isSelected={selectedConversation?.id === conversation.id}
+                onClick={() => onSelectConversation(conversation)}
+              />
+            ))}
           </AnimatePresence>
         )}
       </div>
@@ -193,22 +136,27 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedConversation, onSelectConvers
         </button>
       </div>
 
-      {/* New DM Modal */}
+      {/* Modals */}
       <AnimatePresence>
         {showNewChat && (
           <NewDM
             onClose={() => setShowNewChat(false)}
-            onSuccess={() => refetch()}
+            onSuccess={() => {
+              refetch()
+              setShowNewChat(false)
+            }}
           />
         )}
       </AnimatePresence>
 
-      {/* New Group Modal */}
       <AnimatePresence>
         {showNewGroup && (
           <NewGroup
             onClose={() => setShowNewGroup(false)}
-            onSuccess={() => refetch()}
+            onSuccess={() => {
+              refetch()
+              setShowNewGroup(false)
+            }}
           />
         )}
       </AnimatePresence>
