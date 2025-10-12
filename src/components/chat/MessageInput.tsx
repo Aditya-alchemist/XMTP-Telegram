@@ -31,10 +31,9 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 100 * 1024 * 1024) {
-        toast.error('File too large. Maximum size is 100MB')
+        toast.error('File too large. Max 100MB')
         return
       }
-
       setSelectedFile(file)
     }
   }
@@ -52,52 +51,55 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     if (!trimmedMessage && !selectedFile) return
     if (isSending || isUploading) return
 
-    if (trimmedMessage.length > UI_CONFIG.MAX_MESSAGE_LENGTH) {
-      toast.error(`Message too long. Maximum ${UI_CONFIG.MAX_MESSAGE_LENGTH} characters`)
-      return
-    }
-
     try {
       let messageToSend = trimmedMessage
 
       if (selectedFile) {
         setIsUploading(true)
-        const loadingToast = toast.loading('Uploading file...')
+        const loadingToast = toast.loading('Uploading...')
 
-        const uploaded = await uploadToIPFS(selectedFile)
-        
-        toast.success('File uploaded!', { id: loadingToast })
+        try {
+          const uploaded = await uploadToIPFS(selectedFile)
+          toast.success('Uploaded!', { id: loadingToast })
 
-        messageToSend = JSON.stringify({
-          type: 'file',
-          file: {
-            cid: uploaded.cid,
-            url: uploaded.url,
-            name: uploaded.name,
-            size: uploaded.size,
-            mimeType: uploaded.type,
-          },
-          caption: trimmedMessage,
-        })
+          messageToSend = JSON.stringify({
+            type: 'file',
+            file: {
+              cid: uploaded.cid,
+              url: uploaded.url,
+              name: uploaded.name,
+              size: uploaded.size,
+              mimeType: uploaded.type,
+            },
+            caption: trimmedMessage,
+          })
 
-        setSelectedFile(null)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
+          setSelectedFile(null)
+          if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+          }
+        } catch (err) {
+          toast.error('Upload failed', { id: loadingToast })
+          setIsUploading(false)
+          return
         }
+        
         setIsUploading(false)
       }
 
+      // Send message (NO toast here - handled by success below)
       await sendMessage(messageToSend)
       
-      // ONLY ONE TOAST HERE
-      toast.success('Message sent')
+      // ONLY ONE TOAST
+      if (!selectedFile) {
+        toast.success('Sent')
+      }
       
       setMessage('')
       inputRef.current?.focus()
     } catch (err: any) {
-      console.error('Failed to send:', err)
-      const errorMsg = err?.message || 'Failed to send message'
-      toast.error(errorMsg)
+      console.error('Send failed:', err)
+      toast.error(err?.message || 'Failed to send')
       setIsUploading(false)
     }
   }
@@ -150,7 +152,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
               <button
                 onClick={handleRemoveFile}
                 className="btn-icon flex-shrink-0"
-                disabled={isSending}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -163,7 +164,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
         <button
           onClick={() => fileInputRef.current?.click()}
           className="btn-icon flex-shrink-0"
-          title="Attach file"
           disabled={isSending || isUploading}
         >
           <Paperclip className="w-5 h-5" />
@@ -184,25 +184,17 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
             value={message}
             onChange={handleChange}
             onKeyDown={handleKeyPress}
-            placeholder={selectedFile ? 'Add a caption...' : 'Type a message...'}
+            placeholder={selectedFile ? 'Add caption...' : 'Type a message...'}
             disabled={isSending || isUploading}
             rows={1}
-            className="chat-input resize-none max-h-32 min-h-[44px] pr-16"
-            style={{ height: 'auto' }}
+            className="chat-input resize-none max-h-32 min-h-[44px]"
           />
-
-          {message.length > UI_CONFIG.MAX_MESSAGE_LENGTH * 0.8 && (
-            <div className="absolute bottom-2 right-2 text-xs text-telegram-gray bg-telegram-sidebar px-2 py-1 rounded">
-              {message.length} / {UI_CONFIG.MAX_MESSAGE_LENGTH}
-            </div>
-          )}
         </div>
 
         <div className="relative flex-shrink-0">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="btn-icon"
-            title="Emoji"
             disabled={isSending || isUploading}
           >
             <Smile className="w-5 h-5" />
@@ -216,15 +208,14 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
                   onClick={() => setShowEmojiPicker(false)}
                 />
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
                   className="absolute bottom-12 right-0 z-50"
                 >
                   <EmojiPicker
                     onEmojiClick={handleEmojiClick}
                     theme={Theme.DARK}
-                    searchPlaceholder="Search emoji..."
                     width={350}
                     height={400}
                     previewConfig={{ showPreview: false }}
@@ -240,7 +231,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
           disabled={(!message.trim() && !selectedFile) || isSending || isUploading}
-          className="btn-primary px-4 py-3 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary px-4 py-3 flex-shrink-0 disabled:opacity-50"
         >
           {isSending || isUploading ? (
             <Loader2 className="w-5 h-5 animate-spin" />

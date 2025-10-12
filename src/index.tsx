@@ -10,7 +10,6 @@ import { XMTPProvider } from './contexts/XMTPContext'
 import { Toaster } from 'react-hot-toast'
 
 const queryClient = new QueryClient()
-
 const projectId = process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'ff049f17-f9f3-4c91-b433-4cec39eb1836'
 
 createWeb3Modal({
@@ -19,7 +18,6 @@ createWeb3Modal({
   themeMode: 'dark',
   themeVariables: {
     '--w3m-accent': '#0088cc',
-    '--w3m-border-radius-master': '8px',
   },
 })
 
@@ -34,25 +32,22 @@ root.render(
         <XMTPProvider>
           <App />
           <Toaster
-            position="bottom-right"
+            position="top-center"
             toastOptions={{
-              duration: 2000,
+              duration: 1500,
               style: {
                 background: '#2b2f36',
                 color: '#e1e3e6',
-                border: '1px solid #404449',
-                padding: '12px 16px',
+                border: '1px solid #64b5f6',
+                padding: '12px 20px',
                 borderRadius: '12px',
                 fontSize: '14px',
-                maxWidth: '350px',
+                fontWeight: '500',
               },
               success: {
                 iconTheme: {
                   primary: '#64b5f6',
                   secondary: '#fff',
-                },
-                style: {
-                  border: '1px solid #64b5f6',
                 },
               },
               error: {
@@ -62,12 +57,6 @@ root.render(
                 },
                 style: {
                   border: '1px solid #ef5350',
-                },
-              },
-              loading: {
-                iconTheme: {
-                  primary: '#64b5f6',
-                  secondary: '#fff',
                 },
               },
             }}
