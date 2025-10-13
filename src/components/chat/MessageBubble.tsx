@@ -59,16 +59,24 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   }
 
   const handleDownload = async (cid: string, filename: string) => {
-    toast.loading('Downloading...', { id: `download-${cid}` })
+    const downloadToast = toast.loading('Downloading...')
     
     try {
       const gateway = process.env.REACT_APP_PINATA_GATEWAY || 'gateway.pinata.cloud'
       const url = `https://${gateway}/ipfs/${cid}`
       
-      const response = await fetch(url, { method: 'GET' })
-      if (!response.ok) throw new Error('Download failed')
+      // Fetch the file as blob
+      const response = await fetch(url, {
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        throw new Error('Download failed')
+      }
 
       const blob = await response.blob()
+      
+      // Create download link
       const downloadUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = downloadUrl
@@ -76,12 +84,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+      
+      // Cleanup
       URL.revokeObjectURL(downloadUrl)
       
-      toast.success('Downloaded!', { id: `download-${cid}`, duration: 1500 })
+      toast.success('Downloaded!', { id: downloadToast })
     } catch (err) {
       console.error('Download error:', err)
-      toast.error('Download failed', { id: `download-${cid}` })
+      toast.error('Download failed', { id: downloadToast })
     }
   }
 

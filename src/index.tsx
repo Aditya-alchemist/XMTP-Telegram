@@ -25,44 +25,45 @@ const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 )
 
-// REMOVED React.StrictMode - This was causing double signature requests
 root.render(
-  <WagmiProvider config={config}>
-    <QueryClientProvider client={queryClient}>
-      <XMTPProvider>
-        <App />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 1500,
-            style: {
-              background: '#2b2f36',
-              color: '#e1e3e6',
-              border: '1px solid #64b5f6',
-              padding: '12px 20px',
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontWeight: '500',
-              marginTop: '60px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#64b5f6',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef5350',
-                secondary: '#fff',
-              },
+  <React.StrictMode>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <XMTPProvider>
+          <App />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 1500,
               style: {
-                border: '1px solid #ef5350',
+                background: '#2b2f36',
+                color: '#e1e3e6',
+                border: '1px solid #64b5f6',
+                padding: '12px 20px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '500',
+                marginTop: '60px',
               },
-            },
-          }}
-        />
-      </XMTPProvider>
-    </QueryClientProvider>
-  </WagmiProvider>
+              success: {
+                iconTheme: {
+                  primary: '#64b5f6',
+                  secondary: '#fff',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#ef5350',
+                  secondary: '#fff',
+                },
+                style: {
+                  border: '1px solid #ef5350',
+                },
+              },
+            }}
+          />
+        </XMTPProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  </React.StrictMode>
 )
