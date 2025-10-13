@@ -17,6 +17,7 @@ export const useConversations = (): UseConversationsReturn => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const isSyncing = useRef(false)
+  const hasInitialized = useRef(false)
 
   const syncConversations = useCallback(async () => {
     if (!client || isSyncing.current) return
@@ -34,6 +35,7 @@ export const useConversations = (): UseConversationsReturn => {
   const fetchConversations = useCallback(async (showLoading = true) => {
     if (!client || !isConnected) {
       setConversations([])
+      hasInitialized.current = false
       return
     }
 
@@ -43,6 +45,8 @@ export const useConversations = (): UseConversationsReturn => {
     try {
       await syncConversations()
       const allConversations = await client.conversations.list()
+      
+      console.log(`✅ Loaded ${allConversations.length} conversations`)
       
       const sortedConversations = await Promise.all(
         allConversations.map(async (conv) => {
@@ -67,6 +71,7 @@ export const useConversations = (): UseConversationsReturn => {
       )
 
       setConversations(sortedConversations)
+      hasInitialized.current = true
     } catch (err) {
       console.error('Error fetching conversations:', err)
       const error = err instanceof Error ? err : new Error(ERROR_MESSAGES.CONVERSATION_LOAD_ERROR)
@@ -80,18 +85,30 @@ export const useConversations = (): UseConversationsReturn => {
     await fetchConversations(false) // Silent refresh
   }, [fetchConversations])
 
+  // CRITICAL: Load conversations when client becomes available
   useEffect(() => {
     if (isConnected && client) {
+      console.log('🔄 XMTP client connected, loading conversations...')
       fetchConversations(true)
+    } else {
+      // Clear when disconnected
+      console.log('❌ XMTP client disconnected, clearing conversations')
+      setConversations([])
+      hasInitialized.current = false
     }
   }, [isConnected, client, fetchConversations])
 
+  // Event listeners and polling (only when connected)
   useEffect(() => {
+    if (!isConnected || !client) return
+
     const handleMessageSent = () => {
+      console.log('📤 Message sent event, refreshing...')
       refetch()
     }
 
     const handleNewConversation = () => {
+      console.log('🆕 New conversation event, refreshing...')
       refetch()
     }
 
@@ -100,7 +117,7 @@ export const useConversations = (): UseConversationsReturn => {
 
     // Silent background refresh every 15 seconds
     const pollInterval = setInterval(() => {
-      if (isConnected && client && !isSyncing.current) {
+      if (isConnected && client && !isSyncing.current && hasInitialized.current) {
         refetch()
       }
     }, 15000)

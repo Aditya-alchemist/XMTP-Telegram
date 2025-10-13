@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useXMTP } from '../../contexts/XMTPContext'
@@ -18,6 +18,13 @@ const AppLayout: React.FC = () => {
   
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+
+  // Clear selected conversation when XMTP disconnects
+  useEffect(() => {
+    if (!isXMTPConnected) {
+      setSelectedConversation(null)
+    }
+  }, [isXMTPConnected])
 
   // Show wallet connect screen if not connected
   if (!isConnected) {
