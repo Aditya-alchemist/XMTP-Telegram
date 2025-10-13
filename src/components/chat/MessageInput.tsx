@@ -31,7 +31,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 100 * 1024 * 1024) {
-        toast.error('File too large. Max 100MB')
+        toast.error('File too large. Max 100MB', { id: 'file-error' })
         return
       }
       setSelectedFile(file)
@@ -52,19 +52,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
     if (isSending || isUploading) return
 
     let messageToSend = trimmedMessage
-    let uploadSuccessToastId: string | undefined
 
     try {
       if (selectedFile) {
         setIsUploading(true)
-        const uploadToast = toast.loading('Uploading...')
+        toast.loading('Uploading...', { id: 'file-upload' })
 
         try {
           const uploaded = await uploadToIPFS(selectedFile)
-          
-          // Dismiss loading and show success
-          toast.dismiss(uploadToast)
-          uploadSuccessToastId = toast.success('Sent', { duration: 1500 })
+          toast.dismiss('file-upload')
 
           messageToSend = JSON.stringify({
             type: 'file',
@@ -83,7 +79,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
             fileInputRef.current.value = ''
           }
         } catch (err) {
-          toast.error('Upload failed', { id: uploadToast })
+          toast.error('Upload failed', { id: 'file-upload' })
           setIsUploading(false)
           return
         }
@@ -91,19 +87,16 @@ const MessageInput: React.FC<MessageInputProps> = ({ conversation }) => {
         setIsUploading(false)
       }
 
-      // Send the message
       await sendMessage(messageToSend)
       
-      // Only show "Sent" for text messages (files already showed it)
-      if (!selectedFile) {
-        toast.success('Sent', { duration: 1500 })
-      }
+      // Use unique ID to prevent duplicates
+      toast.success('Sent', { id: 'message-sent', duration: 1500 })
       
       setMessage('')
       inputRef.current?.focus()
     } catch (err: any) {
       console.error('Send failed:', err)
-      toast.error('Failed to send')
+      toast.error('Failed to send', { id: 'message-error' })
       setIsUploading(false)
     }
   }

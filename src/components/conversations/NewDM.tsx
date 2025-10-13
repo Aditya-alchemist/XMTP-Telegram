@@ -109,7 +109,8 @@ const NewDM: React.FC<NewDMProps> = ({ onClose, onSuccess }) => {
       window.dispatchEvent(new Event('xmtp-new-conversation'))
 
 
-      toast.success('Chat started!')
+    toast.success('Chat started!', { id: 'chat-created', duration: 1500 })
+
 
       onSuccess?.()
       onClose()
