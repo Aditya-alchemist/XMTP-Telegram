@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { Client, type Signer } from '@xmtp/browser-sdk'
 import { useAccount, useWalletClient } from 'wagmi'
 import toast from 'react-hot-toast'
@@ -37,6 +37,7 @@ export const XMTPProvider: React.FC<XMTPProviderProps> = ({ children }) => {
   const [isInitializing, setIsInitializing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [inboxId, setInboxId] = useState<string | null>(null)
+  const initRef = useRef(false) // Prevent double initialization
 
   const { address, isConnected: isWalletConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
@@ -51,26 +52,21 @@ export const XMTPProvider: React.FC<XMTPProviderProps> = ({ children }) => {
     }
 
     try {
-      // Create XMTP signer object using wagmi's wallet client directly
       const xmtpSigner: Signer = {
         type: 'EOA' as const,
         
-        // Get wallet identifier
         getIdentifier: () => ({
           identifier: address.toLowerCase(),
           identifierKind: 'Ethereum' as const,
         }),
 
-        // Sign message for XMTP authentication
         signMessage: async (message: string): Promise<Uint8Array> => {
           try {
-            // Use wagmi's wallet client to sign
             const signature = await walletClient.signMessage({
               account: address as `0x${string}`,
               message: message,
             })
             
-            // Convert hex signature to Uint8Array
             const signatureBytes = new Uint8Array(
               signature.slice(2).match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16))
             )
@@ -99,17 +95,17 @@ export const XMTPProvider: React.FC<XMTPProviderProps> = ({ children }) => {
       return
     }
 
-    if (client) {
-      console.log('XMTP client already initialized')
+    if (client || initRef.current) {
+      console.log('XMTP client already initialized or initializing')
       return
     }
 
+    initRef.current = true
     setIsInitializing(true)
     setIsLoading(true)
     setError(null)
 
     try {
-      // Create signer
       const signer = await createXMTPSigner()
       
       if (!signer) {
@@ -118,39 +114,39 @@ export const XMTPProvider: React.FC<XMTPProviderProps> = ({ children }) => {
 
       console.log('🔄 Creating XMTP v3 client...')
       
-      // Create XMTP v3 client
+      // Use address-based encryption key for persistence
+      const dbKey = `xmtp-${address.toLowerCase()}`
+      const encryptionKey = new TextEncoder().encode(dbKey).slice(0, 32)
+      
       const xmtpClient = await Client.create(signer, {
         env: XMTP_CONFIG.ENV,
         appVersion: XMTP_CONFIG.APP_VERSION,
-        
-        // Database configuration
-        dbPath: `xmtp-${XMTP_CONFIG.ENV}-${address}.db3`,
-        
-        // Logging configuration
-        loggingLevel: 'info',
-        structuredLogging: false,
-        performanceLogging: false,
+        dbEncryptionKey: encryptionKey,
       })
 
       console.log('✅ XMTP client created successfully!')
       
-      // Get inbox ID
       const userInboxId = xmtpClient.inboxId
       console.log('📬 Inbox ID:', userInboxId)
 
-      // Set client and inbox ID
       setClient(xmtpClient)
       setInboxId(userInboxId ?? null)
       
       toast.success('Connected to XMTP!')
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Error initializing XMTP client:', err)
-      const errorMessage = err instanceof Error ? err.message : ERROR_MESSAGES.XMTP_CLIENT_ERROR
-      setError(err instanceof Error ? err : new Error(errorMessage))
-      toast.error(errorMessage)
+      
+      if (err.message?.includes('already registered')) {
+        toast.error('Installation limit reached. Please use the same browser.', { duration: 5000 })
+      } else {
+        toast.error(err.message || ERROR_MESSAGES.XMTP_CLIENT_ERROR)
+      }
+      
+      setError(err instanceof Error ? err : new Error(ERROR_MESSAGES.XMTP_CLIENT_ERROR))
     } finally {
       setIsLoading(false)
       setIsInitializing(false)
+      initRef.current = false
     }
   }, [isWalletConnected, address, client, createXMTPSigner])
 
@@ -160,18 +156,14 @@ export const XMTPProvider: React.FC<XMTPProviderProps> = ({ children }) => {
   const disconnectClient = useCallback(() => {
     if (client) {
       try {
-        // Close the client's web worker
-        client.close()
-        console.log('XMTP client disconnected')
-        
         setClient(null)
         setInboxId(null)
         setError(null)
+        initRef.current = false
         
-        toast.success('Disconnected from XMTP')
+        console.log('XMTP client disconnected')
       } catch (err) {
         console.error('Error disconnecting XMTP client:', err)
-        toast.error('Failed to disconnect')
       }
     }
   }, [client])
