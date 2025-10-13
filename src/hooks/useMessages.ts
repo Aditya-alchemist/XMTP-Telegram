@@ -74,13 +74,11 @@ export const useMessages = (conversation: Conversation | null): UseMessagesRetur
 
     try {
       await conversation.send(content)
-      
       await new Promise(resolve => setTimeout(resolve, 500))
       await fetchMessages()
-      
       window.dispatchEvent(new Event('xmtp-message-sent'))
       
-      // NO TOAST HERE - Let MessageInput handle it
+      // NO TOAST HERE - MessageInput handles it
     } catch (err) {
       console.error('Error sending message:', err)
       throw err
